@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0c1f17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Coach Blackjack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@600&display=swap">
+<style>
+:root{
+  --bg:#eef2ef; --surface:#ffffff; --surface-2:#e1e8e3; --fg:#13201a; --muted:#5a6b62; --line:#c9d4cd; --accent:#a8761c;
+  --hit:#2563a8; --stand:#b4531a; --double:#1e7a4a; --split:#7a3fa0; --bust:#a62b2b;
+  --hit-bg:#dce8f5; --stand-bg:#f6e2d4; --double-bg:#d6eedf; --split-bg:#eadcf3; --bust-bg:#f5dada;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0c1f17; --surface:#142c21; --surface-2:#1b3a2c; --fg:#eef3ef; --muted:#9db3a6; --line:#2a4a3d; --accent:#d9a744;
+  --hit:#8dbcf0; --stand:#f3a874; --double:#76dba3; --split:#d0a3ee; --bust:#f39191;
+  --hit-bg:#173250; --stand-bg:#4a2a16; --double-bg:#163f2a; --split-bg:#36214a; --bust-bg:#4a1c1c; color-scheme:dark}}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);overscroll-behavior:none;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:8px;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:10px}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Zones (croupier + joueurs) */
+.row{display:flex;gap:8px}
+.others{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.others:empty{display:none}
+.others .zone{padding:5px 8px}
+.others .cards{min-height:34px}
+.others .card{height:32px;min-width:24px;font-size:14px}
+.zone{position:relative;flex:1;border:3px solid transparent;border-radius:14px;background:var(--surface);padding:6px 9px;text-align:left;min-width:0}
+.zone.dealer{flex:0 0 32%}
+.zone.on{border-color:var(--accent)}
+.zhead{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.zlabel{font-size:15px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{font-size:13px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.pill.k-H{color:var(--hit)}.pill.k-S{color:var(--stand)}.pill.k-D{color:var(--double)}.pill.k-P{color:var(--split)}.pill.k-X{color:var(--bust)}
+.cards{display:flex;gap:4px;flex-wrap:wrap;min-height:40px;align-items:center;margin-top:3px}
+.card{min-width:28px;height:38px;padding:0 4px;border-radius:6px;background:var(--surface-2);display:grid;place-items:center;font-family:var(--mono);font-size:16px}
+.card.empty{opacity:.4}
+.total{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.others .zhead{padding-right:22px}
+.del{position:absolute;top:3px;right:3px;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;border:0;background:var(--surface-2);color:var(--muted);font-size:16px;line-height:1}
+
+/* Réponse */
+.answer{flex:1;min-height:0;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;padding:10px;background:var(--surface);transition:background .15s}
+.who{font-size:18px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.verb{font-size:clamp(60px,21vw,120px);font-weight:700;line-height:.9;letter-spacing:.01em}
+.sub{font-size:22px;font-weight:600;color:var(--muted)}
+.answer.k-H{background:var(--hit-bg)}.answer.k-H .verb{color:var(--hit)}
+.answer.k-S{background:var(--stand-bg)}.answer.k-S .verb{color:var(--stand)}
+.answer.k-D{background:var(--double-bg)}.answer.k-D .verb{color:var(--double)}
+.answer.k-P{background:var(--split-bg)}.answer.k-P .verb{color:var(--split)}
+.answer.k-X{background:var(--bust-bg)}.answer.k-X .verb{color:var(--bust)}
+.answer.k-N .verb{color:var(--muted);font-size:clamp(40px,12vw,64px)}
+.go{margin-top:6px;border:0;border-radius:12px;padding:10px 20px;font-size:22px;font-weight:700;background:var(--split);color:var(--bg)}
+
+/* Clavier */
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.key{border:0;border-radius:14px;background:var(--surface);font-family:var(--mono);font-size:28px;height:clamp(54px,8.5vh,74px);box-shadow:0 2px 0 var(--line)}
+.key:active{transform:translateY(2px);box-shadow:none;background:var(--surface-2)}
+.key small{display:block;font-family:var(--display);font-size:12px;color:var(--muted);line-height:1}
+.bar{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:7px}
+.bar button{border:0;border-radius:14px;height:54px;font-size:21px;font-weight:700}
+.undo,.add{background:var(--surface-2)}
+.new{background:var(--accent);color:var(--bg)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="row">
+    <button class="zone dealer" id="zDealer">
+      <div class="zhead"><span class="zlabel">Croupier</span></div>
+      <div class="cards" id="cDealer"></div>
+    </button>
+    <div id="zMeSlot" style="flex:1;display:flex;min-width:0"></div>
+  </div>
+  <div class="others" id="others"></div>
+
+  <div class="answer k-N" id="ans" aria-live="polite">
+    <div class="who" id="who"></div>
+    <div class="verb" id="verb"></div>
+    <div class="sub" id="sub"></div>
+    <button class="go" id="go" hidden></button>
+  </div>
+
+  <div class="keys" id="keys"></div>
+  <div class="bar">
+    <button class="undo" id="undo">Annuler</button>
+    <button class="add" id="add">+ Joueur</button>
+    <button class="new" id="new">Nouvelle main</button>
+  </div>
+</div>
+
+<script>
+/*
+  Stratégie de base — table européenne (croupier sans carte cachée),
+  croupier reste sur 17 soft, double après split autorisé, multi-jeux.
+*/
+const val = r => r === 'A' ? 11 : +r;
+const WORD = { H: 'TIRE', S: 'RESTE', D: 'DOUBLE', P: 'SÉPARE' };
+
+let nextId = 1;
+const newPlayer = (id, name) => ({ id, name, cards: [], split: false, aces: false, pending: null });
+let players = [newPlayer(0, 'Toi')];
+let dealer = null;
+let target = 'dealer';
+
+/* ---------- Calculs ---------- */
+function evalHand(c) {
+  let t = 0, a = 0;
+  c.forEach(x => { t += val(x); if (x === 'A') a++; });
+  while (t > 21 && a) { t -= 10; a--; }
+  return { t, soft: a > 0 };
+}
+function pairCode(p, d) {
+  if (p === 11) return d === 11 ? null : 'P';
+  if (p === 10 || p === 5) return null;
+  if (p === 9) return [2, 3, 4, 5, 6, 8, 9].includes(d) ? 'P' : null;
+  if (p === 8) return d >= 10 ? null : 'P';
+  if (p === 7) return d <= 7 ? 'P' : null;
+  if (p === 6) return d <= 6 ? 'P' : null;
+  if (p === 4) return (d === 5 || d === 6) ? 'P' : null;
+  return d <= 7 ? 'P' : null; // 2-2, 3-3
+}
+function softCode(t, d) {
+  if (t >= 19) return 'S';
+  if (t === 18) return (d >= 3 && d <= 6) ? 'Ds' : (d <= 8 ? 'S' : 'H');
+  if (t === 17) return (d >= 3 && d <= 6) ? 'D' : 'H';
+  if (t >= 15) return (d >= 4 && d <= 6) ? 'D' : 'H';
+  if (t >= 13) return (d >= 5 && d <= 6) ? 'D' : 'H';
+  return 'H';
+}
+function hardCode(t, d, n) {
+  if (t >= 17) return 'S';
+  if (t >= 13) return d <= 6 ? 'S' : ((t === 16 && d === 10 && n >= 3) ? 'S' : 'H');
+  if (t === 12) return (d >= 4 && d <= 6) ? 'S' : 'H';
+  if (t === 11 || t === 10) return d <= 9 ? 'D' : 'H';
+  if (t === 9) return (d >= 3 && d <= 6) ? 'D' : 'H';
+  return 'H';
+}
+
+function advise(p) {
+  const c = p.cards;
+  if (!dealer) return { k: 'N', v: 'Croupier ?', s: 'Tape sa carte visible' };
+  if (c.length < 2) {
+    if (p.split) return { k: 'N', v: 'Carte ?', s: 'Tape la carte reçue sur cette main' };
+    return { k: 'N', v: 'Cartes ?', s: c.length ? 'Encore une carte' : 'Tape les 2 cartes' };
+  }
+  const { t, soft } = evalHand(c), d = val(dealer), n = c.length;
+  if (t > 21) return { k: 'X', v: 'SAUTÉ', s: 'Main perdue' };
+  if (t === 21 && n === 2 && !p.split) return { k: 'S', v: 'BLACKJACK', s: 'Bravo !' };
+  if (t === 21) return { k: 'S', v: 'RESTE', s: '21' };
+  if (p.aces) return { k: 'S', v: 'RESTE', s: 'Une seule carte par As' };
+
+  let code = null;
+  if (n === 2 && val(c[0]) === val(c[1])) code = pairCode(val(c[0]), d);
+  if (!code) code = soft ? softCode(t, d) : hardCode(t, d, n);
+
+  let k = code;
+  if (code === 'D') k = n === 2 ? 'D' : 'H';
+  if (code === 'Ds') k = n === 2 ? 'D' : 'S';
+
+  let s = (soft ? 'Soft ' : '') + t + ' contre ' + (dealer === 'A' ? 'As' : dealer);
+  if (dealer === 'A' && n === 2 && !p.split) s += ' · pas d’assurance';
+  return { k, v: WORD[k], s };
+}
+
+/* ---------- Affichage ---------- */
+const $ = id => document.getElementById(id);
+const findP = id => players.find(p => p.id === id);
+
+function cardsHTML(list) {
+  if (!list.length) return '<span class="card empty">?</span>';
+  return list.map(r => `<span class="card">${r}</span>`).join('');
+}
+function handLabel(p) {
+  if (p.pending) return p.name + ' · M1';
+  if (p.split) return p.name + ' · M2';
+  return p.name;
+}
+function zoneHTML(p, removable) {
+  const a = advise(p);
+  const tot = p.cards.length ? evalHand(p.cards) : null;
+  return `
+    <button class="zone${target === p.id ? ' on' : ''}" data-id="${p.id}">
+      <div class="zhead"><span class="zlabel">${handLabel(p)}</span>${a.k !== 'N' ? `<span class="pill k-${a.k}">${a.v}</span>` : ''}</div>
+      <div class="cards">${cardsHTML(p.cards)}</div>
+      ${tot ? `<div class="total">${tot.soft && tot.t < 21 ? 'Soft ' : ''}${tot.t}</div>` : ''}
+      ${removable ? `<span class="del" data-del="${p.id}" role="button" aria-label="Retirer ${p.name}">×</span>` : ''}
+    </button>`;
+}
+
+function render() {
+  $('cDealer').innerHTML = cardsHTML(dealer ? [dealer] : []);
+  $('zDealer').classList.toggle('on', target === 'dealer');
+  $('zMeSlot').innerHTML = zoneHTML(players[0], false);
+  $('others').innerHTML = players.slice(1).map(p => zoneHTML(p, true)).join('');
+
+  const p = target === 'dealer' ? players[0] : findP(target);
+  const a = advise(p);
+  $('ans').className = 'answer k-' + a.k;
+  $('who').textContent = players.length > 1 && dealer ? handLabel(p) : '';
+  $('verb').textContent = a.v;
+  $('sub').textContent = a.s;
+
+  const go = $('go');
+  if (target !== 'dealer' && a.k === 'P') { go.hidden = false; go.textContent = 'J’ai séparé →'; }
+  else if (target !== 'dealer' && p.pending && (a.k === 'S' || a.k === 'X')) { go.hidden = false; go.textContent = 'Main suivante →'; }
+  else go.hidden = true;
+}
+
+/* ---------- Actions ---------- */
+function addCard(r) {
+  if (target === 'dealer') {
+    dealer = r;
+    target = (players.find(p => p.cards.length < 2) || players[0]).id;
+  } else {
+    const p = findP(target);
+    p.cards.push(r);
+    // Pendant la distribution, passe au joueur suivant qui n'a pas ses 2 cartes
+    if (p.cards.length === 2 && !p.split) {
+      const next = players.find(q => q.cards.length < 2 && !q.split);
+      target = next ? next.id : players[0].id;
+    }
+  }
+  render();
+}
+function undo() {
+  if (target === 'dealer') { dealer = null; }
+  else {
+    const p = findP(target);
+    if (p.cards.length > (p.split ? 1 : 0)) p.cards.pop();
+    else if (!players.some(q => q.cards.length)) { dealer = null; target = 'dealer'; }
+  }
+  render();
+}
+function newHand() {
+  dealer = null;
+  players = players.map(p => newPlayer(p.id, p.name));
+  target = 'dealer';
+  render();
+}
+function addPlayer() {
+  const id = nextId++;
+  players.push(newPlayer(id, 'J' + players.length));
+  if (dealer) target = id;
+  render();
+}
+function removePlayer(id) {
+  players = players.filter(p => p.id !== id);
+  players.slice(1).forEach((p, i) => p.name = 'J' + (i + 1));
+  if (target === id) target = dealer ? players[0].id : 'dealer';
+  render();
+}
+
+$('go').onclick = () => {
+  const p = findP(target);
+  if (advise(p).k === 'P') {
+    p.split = true; p.aces = p.cards[0] === 'A';
+    p.pending = p.cards[1]; p.cards = [p.cards[0]];
+  } else if (p.pending) {
+    p.cards = [p.pending]; p.pending = null;
+  }
+  render();
+};
+$('zDealer').onclick = () => { target = 'dealer'; render(); };
+document.addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) { e.stopPropagation(); removePlayer(+del.dataset.del); return; }
+  const z = e.target.closest('.zone[data-id]');
+  if (z) { target = +z.dataset.id; render(); }
+});
+$('undo').onclick = undo;
+$('add').onclick = addPlayer;
+$('new').onclick = newHand;
+
+[['A',''],['2',''],['3',''],['4',''],['5',''],['6',''],['7',''],['8',''],['9',''],['10','V D R']].forEach(([r, s]) => {
+  const b = document.createElement('button');
+  b.className = 'key';
+  b.innerHTML = r + (s ? `<small>${s}</small>` : '');
+  b.onclick = () => addCard(r);
+  $('keys').appendChild(b);
+});
+
+render();
+</script>
+</body>
+</html>
